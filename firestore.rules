@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /invites/{inviteId} {
+      allow read, list: if resource.data.to == request.auth.token.email || resource.data.groupId in request.auth.token.groups;
+      allow delete: if resource.data.groupId in request.auth.token.groups;
+      allow create: if request.resource.data.groupId in request.auth.token.groups && request.resource.data.from == request.auth.token.email;
+    }
+
+    match /users/{userId} {
+      allow read, delete: if userId == request.auth.uid;
+      allow update: if request.resource.data.groups == resource.data.groups;
+      allow create: if request.resource.data.groups.size() == 0;
+    }
+
+    match /groups/{groupId} {
+      allow read, list: if groupId in request.auth.token.groups;
+      allow create: if request.auth.uid == request.resource.data.creatorUid && request.resource.data.keys().hasOnly(['creatorUid','name']) && ( !("groups" in request.auth.token)  || request.auth.token.groups.size() < 3 );
+      allow delete: if groupId in request.auth.token.groups;
+      allow update: if request.resource.data.keys().hasOnly(['budget','checkedIngredients','currency','currentIngredients','currentRecipes','filters','ingredientsPrices','name']);
+    
+      match /{document=**} {
+        allow read, list, create, delete, update:  if groupId in request.auth.token.groups;
+      }
+    }
+  }
+}
