@@ -14,9 +14,6 @@ jobs:
       - name: Install Dependencies
         working-directory: functions
         run: npm install
-      - name: Build
-        working-directory: functions
-        run: npm run build
       - name: Deploy to Firebase
         uses: w9jds/firebase-action@v12.4.0
         with:
