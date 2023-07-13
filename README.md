@@ -1,4 +1,4 @@
-# Felicette Recipes
+# Felicette Recipes Backend
 
 ![Felicette Recipes logo](.github/logo192.png)
 
