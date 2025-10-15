@@ -15,7 +15,7 @@ jobs:
         working-directory: functions
         run: npm install
       - name: Deploy to Firebase
-        uses: w9jds/firebase-action@v12.4.0
+        uses: w9jds/firebase-action@v14.19.1
         with:
           args: deploy
         env:
