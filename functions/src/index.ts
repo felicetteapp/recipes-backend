@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+import {auth, firestore, https} from "firebase-functions/v1";
 import {initializeApp} from "firebase-admin/app";
 import {
   addGroupToUserDatabaseDoc,
@@ -11,22 +11,20 @@ import {clearAllGroupData} from "./groups";
 
 initializeApp();
 
-export const onAuthUserIsCreated = functions.auth
-  .user()
-  .onCreate(async ({uid}) => {
-    await createUserOnDatabase(uid);
+export const onAuthUserIsCreated = auth.user().onCreate(async ({uid}) => {
+  await createUserOnDatabase(uid);
 
-    return true;
-  });
+  return true;
+});
 
-export const onGroupDelete = functions.firestore
+export const onGroupDelete = firestore
   .document("groups/{groupId}")
   .onDelete(async (_, context) => {
     await clearAllGroupData(context.params.groupId);
     return true;
   });
 
-export const onGroupCreate = functions.firestore
+export const onGroupCreate = firestore
   .document("groups/{groupId}")
   .onCreate(async (snapshot, context) => {
     const data = snapshot.data();
@@ -38,36 +36,21 @@ export const onGroupCreate = functions.firestore
     return true;
   });
 
-export const onUserWrite = functions.firestore
+export const onUserWrite = firestore
   .document("users/{userId}")
   .onWrite(async (a, context) => {
     if (!a.after.exists) {
-      functions.logger.info(`user ${context.params.userId} was deleted`, {
-        structuredData: true,
-      });
-
       await getAuth().deleteUser(context.params.userId);
 
       return;
     }
 
     if (a.before.exists) {
-      functions.logger.info(`user ${context.params.userId} was updated`, {
-        structuredData: true,
-      });
-
       const beforeData = a.before.data();
       const previousGroups = (beforeData?.groups || []) as Array<string>;
 
       const afterData = a.after.data();
       const currentGroups = (afterData?.groups || []) as Array<string>;
-
-      functions.logger.info({
-        beforeData,
-        afterData,
-        previousGroups,
-        currentGroups,
-      });
 
       const groupsWereUpdated =
         previousGroups.some((group) => !currentGroups.includes(group)) ||
@@ -81,7 +64,7 @@ export const onUserWrite = functions.firestore
     }
   });
 
-export const acceptInvite = functions.https.onCall(async (data, context) => {
+export const acceptInvite = https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new Error("missing auth");
   }
