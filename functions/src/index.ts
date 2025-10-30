@@ -1,5 +1,10 @@
 import {https} from "firebase-functions/v2";
-import {auth, firestore} from "firebase-functions/v1";
+import {beforeUserCreated} from "firebase-functions/v2/identity";
+import {
+  onDocumentDeleted,
+  onDocumentCreated,
+  onDocumentWritten,
+} from "firebase-functions/v2/firestore";
 import {initializeApp} from "firebase-admin/app";
 import {
   addGroupToUserDatabaseDoc,
@@ -12,45 +17,47 @@ import {clearAllGroupData} from "./groups";
 
 initializeApp();
 
-export const onAuthUserIsCreated = auth.user().onCreate(async ({uid}) => {
-  await createUserOnDatabase(uid);
-
-  return true;
+export const onAuthUserIsCreated = beforeUserCreated(async (event) => {
+  if (event.data) {
+    await createUserOnDatabase(event.data.uid);
+  }
 });
 
-export const onGroupDelete = firestore
-  .document("groups/{groupId}")
-  .onDelete(async (_, context) => {
-    await clearAllGroupData(context.params.groupId);
+export const onGroupDelete = onDocumentDeleted(
+  "groups/{groupId}",
+  async (event) => {
+    await clearAllGroupData(event.params.groupId);
     return true;
-  });
+  }
+);
 
-export const onGroupCreate = firestore
-  .document("groups/{groupId}")
-  .onCreate(async (snapshot, context) => {
-    const data = snapshot.data();
+export const onGroupCreate = onDocumentCreated(
+  "groups/{groupId}",
+  async (event) => {
+    const data = event.data?.data();
     if (!data) {
       return false;
     }
 
-    await addGroupToUserDatabaseDoc(data.creatorUid, context.params.groupId);
+    await addGroupToUserDatabaseDoc(data.creatorUid, event.params.groupId);
     return true;
-  });
+  }
+);
 
-export const onUserWrite = firestore
-  .document("users/{userId}")
-  .onWrite(async (a, context) => {
-    if (!a.after.exists) {
-      await getAuth().deleteUser(context.params.userId);
+export const onUserWrite = onDocumentWritten(
+  "users/{userId}",
+  async (event) => {
+    if (!event.data?.after.exists) {
+      await getAuth().deleteUser(event.params.userId);
 
       return;
     }
 
-    if (a.before.exists) {
-      const beforeData = a.before.data();
+    if (event.data?.before.exists) {
+      const beforeData = event.data.before.data();
       const previousGroups = (beforeData?.groups || []) as Array<string>;
 
-      const afterData = a.after.data();
+      const afterData = event.data.after.data();
       const currentGroups = (afterData?.groups || []) as Array<string>;
 
       const groupsWereUpdated =
@@ -58,47 +65,51 @@ export const onUserWrite = firestore
         currentGroups.some((group) => !previousGroups.includes(group));
 
       if (groupsWereUpdated) {
-        await updateGroupsFromUserClaims(context.params.userId, currentGroups);
+        await updateGroupsFromUserClaims(event.params.userId, currentGroups);
       }
 
       return;
     }
-  });
-
-export const acceptInvite = https.onCall( {
-  enforceAppCheck: true,
-}, async (request) => {
-  const {auth, data} = request;
-
-  if (!auth) {
-    throw new Error("missing auth");
   }
+);
 
-  const authEmail = auth.token.email;
+export const acceptInvite = https.onCall(
+  {
+    enforceAppCheck: true,
+  },
+  async (request) => {
+    const {auth, data} = request;
 
-  if (!authEmail) {
-    throw new Error("missing email");
+    if (!auth) {
+      throw new Error("missing auth");
+    }
+
+    const authEmail = auth.token.email;
+
+    if (!authEmail) {
+      throw new Error("missing email");
+    }
+
+    if (!data) {
+      throw new Error("missing data");
+    }
+
+    if (!data.inviteId) {
+      throw new Error("missing inviteId");
+    }
+
+    const {isValid, groupId} = await inviteIsValid(data.inviteId, authEmail);
+
+    if (!isValid) {
+      throw new Error("invite is not valid");
+    }
+
+    if (!groupId) {
+      throw new Error("missing groupId");
+    }
+
+    await addGroupToUserDatabaseDoc(auth.uid, groupId);
+
+    return deleteInvite(data.inviteId);
   }
-
-  if (!data) {
-    throw new Error("missing data");
-  }
-
-  if (!data.inviteId) {
-    throw new Error("missing inviteId");
-  }
-
-  const {isValid, groupId} = await inviteIsValid(data.inviteId, authEmail);
-
-  if (!isValid) {
-    throw new Error("invite is not valid");
-  }
-
-  if (!groupId) {
-    throw new Error("missing groupId");
-  }
-
-  await addGroupToUserDatabaseDoc(auth.uid, groupId);
-
-  return deleteInvite(data.inviteId);
-});
+);
