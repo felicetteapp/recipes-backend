@@ -1,4 +1,5 @@
-import {auth, firestore, https} from "firebase-functions/v1";
+import {https} from "firebase-functions/v2";
+import {auth, firestore} from "firebase-functions/v1";
 import {initializeApp} from "firebase-admin/app";
 import {
   addGroupToUserDatabaseDoc,
@@ -64,12 +65,10 @@ export const onUserWrite = firestore
     }
   });
 
-export const acceptInvite = https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new Error("missing auth");
-  }
-
-  const auth = context.auth;
+export const acceptInvite = https.onCall( {
+  enforceAppCheck: true,
+}, async (request) => {
+  const {auth, data} = request;
 
   if (!auth) {
     throw new Error("missing auth");
