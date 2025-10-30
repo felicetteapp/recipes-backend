@@ -23,7 +23,7 @@ export const onAuthUserIsCreatedV2 = beforeUserCreated(async (event) => {
   }
 });
 
-export const onGroupDelete = onDocumentDeleted(
+export const onGroupDeleteV2 = onDocumentDeleted(
   "groups/{groupId}",
   async (event) => {
     await clearAllGroupData(event.params.groupId);
@@ -31,7 +31,7 @@ export const onGroupDelete = onDocumentDeleted(
   }
 );
 
-export const onGroupCreate = onDocumentCreated(
+export const onGroupCreateV2 = onDocumentCreated(
   "groups/{groupId}",
   async (event) => {
     const data = event.data?.data();
@@ -44,7 +44,7 @@ export const onGroupCreate = onDocumentCreated(
   }
 );
 
-export const onUserWrite = onDocumentWritten(
+export const onUserWriteV2 = onDocumentWritten(
   "users/{userId}",
   async (event) => {
     if (!event.data?.after.exists) {
@@ -73,7 +73,7 @@ export const onUserWrite = onDocumentWritten(
   }
 );
 
-export const acceptInvite = https.onCall(
+export const acceptInviteV2 = https.onCall(
   {
     enforceAppCheck: true,
   },
