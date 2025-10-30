@@ -17,7 +17,7 @@ import {clearAllGroupData} from "./groups";
 
 initializeApp();
 
-export const onAuthUserIsCreated = beforeUserCreated(async (event) => {
+export const onAuthUserIsCreatedV2 = beforeUserCreated(async (event) => {
   if (event.data) {
     await createUserOnDatabase(event.data.uid);
   }
